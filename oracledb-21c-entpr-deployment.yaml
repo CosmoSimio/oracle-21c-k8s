@@ -34,4 +34,3 @@ spec:
         resources:
           requests:
             memory: "4Gi"
-            test

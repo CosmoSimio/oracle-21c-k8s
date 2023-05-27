@@ -28,4 +28,3 @@ spec:
     requests:
       storage: 20Gi
   storageClassName: efs-sc
-  test
