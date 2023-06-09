@@ -3,10 +3,12 @@ kind: Service
 metadata:
   name: oracle-service
   namespace: oracle
+  labels:
+    app: oracledb-21c-entpr
 spec:
   selector:
     app: oracledb-21c-entpr
-  type: LoadBalancer
+  type: NodePort
   ports:
     - protocol: TCP
       port: 1521
