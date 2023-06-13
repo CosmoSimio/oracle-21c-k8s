@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: efs-pv-oracle
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: efs-sc
+  volumeMode: Filesystem
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: fs-01df005278c16e48f
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: efs-pvc-oracle
+  namespace: oracle
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: efs-sc
+
+---
+
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: oracledb-vpa
+  namespace: oracle
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: StatefulSet
+    name: oracledb-21c-entpr
+  updatePolicy:
+    updateMode: "Auto"
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: oracledb-21c-entpr
+  namespace: oracle
+spec:
+  selector:
+    matchLabels:
+      app: oracledb-21c-entpr
+  serviceName: oracledb-21c-entpr-service
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: oracledb-21c-entpr
+    spec:
+      serviceAccountName: oracle-service-account
+      volumes:
+        - name: oracle-pvc
+          persistentVolumeClaim:
+            claimName: efs-pvc-oracle
+      containers:
+        - name: oracledb-21c-entpr
+          image: container-registry.oracle.com/database/enterprise:latest
+          ports:
+            - containerPort: 1521
+              name: db-port
+            - containerPort: 5500
+              name: em-port
+          env:
+            - name: ORACLE_PWD
+              value: Password123
+          volumeMounts:
+            - name: oracle-pvc
+              mountPath: /data
+          resources:
+            requests:
+              memory: "8Gi"
+              cpu: "6"
+            limits:
+              memory: "16Gi"
+              cpu: "8"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle-service
+  namespace: oracle
+  labels:
+    app: oracledb-21c-entpr
+spec:
+  selector:
+    app: oracledb-21c-entpr
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 1521
+      targetPort: 1521
